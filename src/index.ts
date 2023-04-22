@@ -1,56 +1,60 @@
-import { Engine } from "@babylonjs/core/Engines/engine";
-import { WebGPUEngine } from "@babylonjs/core/Engines/webgpuEngine";
-import { getSceneModuleWithName } from "./createScene";
-import "@babylonjs/core/Engines/WebGPU/Extensions/engine.uniformBuffer";
+import { FreeCamera } from '@babylonjs/core/Cameras/freeCamera';
+import { Engine } from '@babylonjs/core/Engines/engine';
+import { HemisphericLight } from '@babylonjs/core/Lights/hemisphericLight';
+import { Vector3 } from '@babylonjs/core/Maths/math.vector';
+import { CreateGround } from '@babylonjs/core/Meshes/Builders/groundBuilder';
+import { CreateSphere } from '@babylonjs/core/Meshes/Builders/sphereBuilder';
+import { Scene } from '@babylonjs/core/scene';
 
-const getModuleToLoad = (): string | undefined =>
-    location.search.split("scene=")[1]?.split("&")[0];
+import { GridMaterial } from '@babylonjs/materials/grid/gridMaterial';
+import { StandardMaterial } from '@babylonjs/core';
 
-export const babylonInit = async (): Promise<void> => {
-    // get the module to load
-    const moduleName = getModuleToLoad();
-    const createSceneModule = await getSceneModuleWithName(moduleName);
-    const engineType =
-        location.search.split("engine=")[1]?.split("&")[0] || "webgl";
-    // Execute the pretasks, if defined
-    await Promise.all(createSceneModule.preTasks || []);
-    // Get the canvas element
-    const canvas = document.getElementById("renderCanvas") as HTMLCanvasElement;
-    // Generate the BABYLON 3D engine
-    let engine: Engine;
-    if (engineType === "webgpu") {
-        const webGPUSupported = await WebGPUEngine.IsSupportedAsync;
-        if (webGPUSupported) {
-            const webgpu = engine = new WebGPUEngine(canvas, {
-                adaptToDeviceRatio: true,
-                antialias: true,
-            });
-            await webgpu.initAsync();
-            engine = webgpu;
-        } else {
-            engine = new Engine(canvas, true);
-        }
-    } else {
-        engine = new Engine(canvas, true);
-    }
+import { MakeBall } from 'bjs-voxels/lib';
 
-    // Create the scene
-    const scene = await createSceneModule.createScene(engine, canvas);
+// Get the canvas element from the DOM.
+const canvas = document.getElementById("renderCanvas") as HTMLCanvasElement;
 
-    // JUST FOR TESTING. Not needed for anything else
-    (window as any).scene = scene;
+// Associate a Babylon Engine to it.
+const engine = new Engine(canvas);
 
-    // Register a render loop to repeatedly render the scene
-    engine.runRenderLoop(function () {
-        scene.render();
-    });
+// Create our first scene.
+var scene = new Scene(engine);
 
-    // Watch for browser/canvas resize events
-    window.addEventListener("resize", function () {
-        engine.resize();
-    });
-};
+// This creates and positions a free camera (non-mesh)
+var camera = new FreeCamera("camera1", new Vector3(0, 5, -10), scene);
 
-babylonInit().then(() => {
-    // scene started rendering, everything is initialized
+// This targets the camera to scene origin
+camera.setTarget(Vector3.Zero());
+
+// This attaches the camera to the canvas
+camera.attachControl(canvas, true);
+
+// This creates a light, aiming 0,1,0 - to the sky (non-mesh)
+var light = new HemisphericLight("light1", new Vector3(0, 1, 0), scene);
+
+// Default intensity is 1. Let's dim the light a small amount
+light.intensity = 0.7;
+
+// Create a grid material
+var material = new StandardMaterial("grid", scene);
+
+// Our built-in 'sphere' shape.
+//var sphere = CreateSphere('sphere1', { segments: 16, diameter: 2 }, scene);
+var sphere = MakeBall("my-ball", scene);
+
+// Move the sphere upward 1/2 its height
+sphere.position.y = 2;
+
+// Affect a material
+//sphere.material = material;
+
+// Our built-in 'ground' shape.
+var ground = CreateGround('ground1', { width: 6, height: 6, subdivisions: 2 }, scene);
+
+// Affect a material
+ground.material = material;
+
+// Render every frame
+engine.runRenderLoop(() => {
+  scene.render();
 });
